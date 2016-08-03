@@ -14,7 +14,8 @@ int main(int argc, char* argv[])
 
         //Return immediately. String is written *after* the function returns,
         //in a separate thread.
-        serial.writeString("Hello world\r\n");
+        // serial.writeString("Hello world\r\n");
+        serial.writeString("ls /img\r\n");
 
         //Simulate doing something else while the serial device replies.
         //When the serial device replies, the second thread stores the received
