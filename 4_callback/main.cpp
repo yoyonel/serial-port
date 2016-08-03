@@ -8,20 +8,19 @@
 
 using namespace std;
 
+/**
+ * @brief received callback de reception de donnees
+ * via la serial connection
+ * @param data tableau de donnees const char*
+ * @param len longueur du tableau (i.e. nombre de donnees recues)
+ */
 void received(const char *data, unsigned int len)
 {
-    vector<char> v(data,data+len);
-    for(unsigned int i=0;i<v.size();i++)
-    {
-        if(v[i]=='\n')
-        {
-            cout<<endl;
-        } else {
-            if(v[i]<32 || v[i]>=0x7f) cout.put(' ');//Remove non-ascii char
-            else cout.put(v[i]);
-        }
-    }
-    cout.flush();//Flush screen buffer
+    const std::string string_serial_data(data, len);
+
+    cout << string_serial_data; // gere la couleur automatiquement (retour de ligne) :-)
+
+    cout.flush();   // Flush screen buffer
 }
 
 int main(int argc, char* argv[])
@@ -29,25 +28,39 @@ int main(int argc, char* argv[])
     if(argc!=3)
     {
         cerr<<"Usage: serial port baudrate"<<endl<<
-                "To quit type Ctrl-C x"<<endl<<
-                "To send Ctrl-C type Ctrl-C Ctrl-C"<<endl;
+              "To quit type Ctrl-C x"<<endl<<
+              "To send Ctrl-C type Ctrl-C Ctrl-C"<<endl;
         return 1;
     }
 
+    // -------------------------
+    // configuration du terminal
+    // -------------------------
+    // sauvegarde des settings du terminal
+    // courant
     termios stored_settings;
     tcgetattr(0, &stored_settings);
+    // mise en place d'un nouveau settings
     termios new_settings = stored_settings;
     new_settings.c_lflag &= (~ICANON);
     new_settings.c_lflag &= (~ISIG); // don't automatically handle control-C
     new_settings.c_lflag &= ~(ECHO); // no echo
     tcsetattr(0, TCSANOW, &new_settings);
+    // -------------------------
 
     cout<<"\e[2J\e[1;1H"; //Clear screen and put cursor to 1;1
 
     try {
+        // -------------------------
         CallbackAsyncSerial serial(argv[1],
                 boost::lexical_cast<unsigned int>(argv[2]));
         serial.setCallback(received);
+        // -------------------------
+
+        // -------------------------
+        // Boucle (infinie) de communication
+        // via le serial connection
+        // -------------------------
         for(;;)
         {
             if(serial.errorStatus() || serial.isOpen()==false)
@@ -57,27 +70,43 @@ int main(int argc, char* argv[])
             }
             char c;
             cin.get(c); //blocking wait for standard input
+
+            // -------------------------
+            // Gestion de l'interruption break
+            // -------------------------
             if(c==3) //if Ctrl-C
             {
                 cin.get(c);
                 switch(c)
                 {
-                    case 3:
-                        serial.write(&c,1);//Ctrl-C + Ctrl-C, send Ctrl-C
+                case 3:
+                    serial.write(&c,1);//Ctrl-C + Ctrl-C, send Ctrl-C
                     break;
-                    case 'x': //fall-through
-                    case 'X':
-                        goto quit;//Ctrl-C + x, quit
-                    default:
-                        serial.write(&c,1);//Ctrl-C + any other char, ignore
+                case 'x': //fall-through
+                case 'X':
+                    // rooohh un goto a l'ancienne ^^
+                    goto quit;//Ctrl-C + x, quit
+                default:
+                    serial.write(&c,1);//Ctrl-C + any other char, ignore
                 }
-            } else serial.write(&c,1);
+            }
+            else {
+                // -------------------------
+                // Sinon on envoie caractere par caractere
+                // a la connection serial
+                // -------------------------
+                serial.write(&c,1);
+            }
         }
-        quit:
+quit:
         serial.close();
     } catch (std::exception& e) {
         cerr<<"Exception: "<<e.what()<<endl;
     }
 
+    // -------------------------
+    // restauration des settings du terminal
+    // -------------------------
     tcsetattr(0, TCSANOW, &stored_settings);
+    // -------------------------
 }
