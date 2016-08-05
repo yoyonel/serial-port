@@ -52,16 +52,20 @@ int main(int argc, char* argv[])
 
     try {
         // -------------------------
+        // Mise en place de la connection serie
+        // - Recuperation des arguments: adress + port
+        // - Mise en place du callback de reception des donnees.
         CallbackAsyncSerial serial(argv[1],
                 boost::lexical_cast<unsigned int>(argv[2]));
         serial.setCallback(received);
         // -------------------------
 
         // -------------------------
-        // Boucle (infinie) de communication
+        // Loop de communication
         // via le serial connection
         // -------------------------
-        for(;;)
+        bool b_continue = true;
+        while(b_continue)
         {
             if(serial.errorStatus() || serial.isOpen()==false)
             {
@@ -84,8 +88,14 @@ int main(int argc, char* argv[])
                     break;
                 case 'x': //fall-through
                 case 'X':
-                    // rooohh un goto a l'ancienne ^^
-                    goto quit;//Ctrl-C + x, quit
+                    //Ctrl-C + x, quit
+                    b_continue = false;
+                    break;
+                case 'l':
+                case 'L':
+                    // simule 'ls' shortcut
+                    serial.writeString(std::string("ls /img/*.tif\n"));
+                    break;
                 default:
                     serial.write(&c,1);//Ctrl-C + any other char, ignore
                 }
@@ -98,8 +108,11 @@ int main(int argc, char* argv[])
                 serial.write(&c,1);
             }
         }
-quit:
+        // -------------------------
+        // Fermeture de la connection serial
+        // -------------------------
         serial.close();
+        // -------------------------
     } catch (std::exception& e) {
         cerr<<"Exception: "<<e.what()<<endl;
     }
